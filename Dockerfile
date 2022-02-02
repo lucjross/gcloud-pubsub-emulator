@@ -1,21 +1,24 @@
-FROM golang:alpine as builder
+FROM google/cloud-sdk:debian_component_based
 
-RUN apk update && apk upgrade && apk add --no-cache curl git
+RUN apt-get update && apt-get install curl git
+RUN gcloud components install beta pubsub-emulator
+
+# Install python/pip
+RUN apt-get update \
+	&& apt-get install -y python3-pip python3-dev \
+	&& cd /usr/local/bin \
+	&& ln -s /usr/bin/python3 python \
+	&& pip3 --no-cache-dir install --upgrade pip \
+	&& rm -rf /var/lib/apt/lists/*
 
 RUN curl -s https://raw.githubusercontent.com/eficode/wait-for/master/wait-for -o /usr/bin/wait-for
 RUN chmod +x /usr/bin/wait-for
 
-RUN go get github.com/prep/pubsubc
+RUN git clone https://github.com/googleapis/python-pubsub && \
+	cd python-pubsub/samples/snippets && \
+	pip3 install -r requirements.txt
 
-###############################################################################
-
-FROM google/cloud-sdk:alpine
-
-COPY --from=builder /usr/bin/wait-for /usr/bin
-COPY --from=builder /go/bin/pubsubc   /usr/bin
-COPY                run.sh            /run.sh
-
-RUN apk --update add openjdk8-jre netcat-openbsd && gcloud components install beta pubsub-emulator
+COPY run.sh /run.sh
 
 EXPOSE 8681
 
